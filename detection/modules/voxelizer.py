@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import List, Tuple
+from winreg import EnumValue
 
 import torch
 
@@ -74,12 +75,24 @@ class Voxelizer(torch.nn.Module):
         Returns:
             BEV occupacy image as a [batch_size x D x H x W] tensor.
         """
+        ## pointcloud = point; batch of pointclouds = one frame captured
         # TODO: Replace this stub code.
-        return torch.zeros(
+        initial_tensor = torch.zeros(
             (len(pointclouds), self._depth, self._height, self._width),
             dtype=torch.bool,
             device=pointclouds[0].device,
         )
+
+        for w, cloud in enumerate(pointclouds):
+            # fancy pytorch stuff ?
+            for row_point in cloud:
+                x, y, z = row_point
+                i, j, k = z - self._z_min, self._y_max - y, x - self._x_min
+                i, j, k = torch.floor_divide(torch.tensor(i,j,k), self._step)
+                initial_tensor[w, i, j, k] = 1
+
+        return initial_tensor
+
 
     def project_detections(self, detections: Detections) -> Detections:
         """Project detections to voxelized frame and filter out-of-bounds ones.
