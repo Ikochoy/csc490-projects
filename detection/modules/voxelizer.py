@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from time import sleep
 from typing import List, Tuple
 
 import torch
@@ -74,12 +75,66 @@ class Voxelizer(torch.nn.Module):
         Returns:
             BEV occupacy image as a [batch_size x D x H x W] tensor.
         """
+        ## pointcloud = point; batch of pointclouds = one frame captured
         # TODO: Replace this stub code.
-        return torch.zeros(
+        initial_tensor = torch.zeros(
             (len(pointclouds), self._depth, self._height, self._width),
-            dtype=torch.bool,
+            dtype=torch.bool,  ## or float??
             device=pointclouds[0].device,
         )
+
+        for w, cloud in enumerate(pointclouds):
+            print("*"*10)
+            # print(cloud)
+            # print(cloud[:, 0] > self._x_min)
+            idx_within_range = torch.bitwise_and(
+                                    torch.bitwise_and(cloud[:, 0] > self._x_min, cloud[:, 0] < self._x_max),
+                                    torch.bitwise_and(cloud[:, 1] > self._y_min, cloud[:, 1] < self._y_max)
+                                    )
+            print(cloud.shape)
+            cloud = cloud[idx_within_range]
+            print(cloud.shape)
+            cloud[:, 0].add_(-self._x_min)
+            # print("Here", cloud[:, 1])
+            torch.neg_(cloud[:, 1])
+            # print(cloud[:, 1])
+            cloud[:, 1].add_(self._y_max)
+            # print(cloud[:, 1])
+            cloud[:, 2].add_(-self._z_min)
+            new_cloud = torch.div(cloud, self._step, rounding_mode='floor')
+            
+            print("*"*10)
+            # print(new_cloud.shape)
+            # print(new_cloud[:, 2].shape, new_cloud[:, 1].shape, new_cloud[:, 0].shape)
+            # print(new_cloud[:, 2])
+            # sleep(5)
+            # new_cloud = torch.cat(torch.unsqueeze((new_cloud[:, 2], 1), torch.unsqueeze(new_cloud[:, 1], 1), torch.unsqueeze(new_cloud[:, 0], 1)), 1)  ##
+            new_cloud = torch.fliplr(new_cloud)
+            print(new_cloud.shape)
+            # x -> k, y -> j, z -> i
+            # padding_column = torch.unsqueeze(torch.tensor([w] * new_cloud.shape[0]), 1)
+            # padded_w = torch.cat([padding_column, new_cloud], 1)  ##
+            # indices = padded_w.long()
+            indices = new_cloud.long()
+            print(indices.shape)
+            # ones = torch.ones(indices.shape[0],
+            #                   dtype=torch.bool,
+            #                   device=pointclouds[0].device)
+            ones = torch.tensor(1.).bool()
+            # print(initial_tensor.type(), ones.type())
+            # initial_tensor.index_put_(tuple(indices.t()), ones)
+
+            # initial_tensor[w].index_put_(tuple(indices.t()), ones)
+            initial_tensor[w].index_put_(tuple(indices), ones)
+
+            # for row_point in cloud:
+            #     x, y, z = row_point[0].item(), row_point[1].item(), row_point[2].item()
+            #     # if x < self._x_max and x > 
+            #     i, j, k = int((z - self._z_min) // self._step), int((self._y_max - y) // self._step), int((x - self._x_min) // self._step)
+            #     # i, j, k = torch.floor_divide(torch.tensor(i,j,k), self._step)
+            #     initial_tensor[w, i, j, k] = 1
+        return initial_tensor
+
 
     def project_detections(self, detections: Detections) -> Detections:
         """Project detections to voxelized frame and filter out-of-bounds ones.
