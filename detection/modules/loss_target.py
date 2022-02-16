@@ -29,23 +29,22 @@ def create_heatmap(grid_coords: Tensor, center: Tensor, scale: float) -> Tensor:
     Returns:
         An [H x W] heatmap tensor, normalized such that its peak is 1.
     """
-    # TODO: Replace this stub code.
+
     # grid_coords.shape == (h, w, 2)
     # center == (cx, cy)
     h, w, _ = grid_coords.shape
 
     def gaussian(tensor_row):
-        return math.exp(-((tensor_row[0].item() - center[0])**2 + (tensor_row[1].item() - center[1])**2 / scale))
+        #print(tensor_row[0], center[0], tensor_row[1], center[1])
+        return math.exp(-((tensor_row[0].item() - center[0].item())**2 + (tensor_row[1].item() - center[1].item())**2 / scale))
 
-    tensor = torch.zeros_like(grid_coords[:, :, 0], dtype=torch.float)
+    tensor = grid_coords.clone().detach()
     tensor_reshaped = tensor.reshape(h * w, 2)
-    # tensor_gaussianed = tensor.exp(tensor.neg((tensor_reshaped - center[0]))
-    gaussianed = torch.stack([ gaussian(x_i) for x_i in torch.unbind(tensor_reshaped, dim=0)], dim=0).reshape(h, w)  # stack -> h*w, 1
+    gaussianed = torch.exp(torch.neg(torch.square(tensor_reshaped[:,0] - center[0]) + torch.square(tensor_reshaped[:, 1] - center[1])) / scale)
+    gaussianed = gaussianed.reshape(h, w)  # stack -> h*w, 1
+    
     # the gaussianed is perhaps already normalized as required, need to test & check
-    if gaussianed.max() > 1:
-        # normalize
-        gaussianed = torch.div(gaussianed, gaussianed.sum())
-
+    gaussianed = torch.div(gaussianed, gaussianed.sum())
     return gaussianed
 
 
@@ -121,6 +120,8 @@ class DetectionLossTargetBuilder:
 
         # TODO: Replace this stub code.
         offsets = torch.zeros(H, W, 2)
+        mask = heatmap > self._heatmap_threshold
+        
 
         # 4. Create box size training target.
         # Given the label's bounding box size (x_size, y_size), the target size at pixel (i, j)
@@ -130,6 +131,7 @@ class DetectionLossTargetBuilder:
 
         # TODO: Replace this stub code.
         sizes = torch.zeros(H, W, 2)
+
 
         # 5. Create heading training targets.
         # Given the label's heading angle yaw, the target heading at pixel (i, j)

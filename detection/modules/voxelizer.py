@@ -93,6 +93,8 @@ class Voxelizer(torch.nn.Module):
                                 torch.bitwise_and(cloud[:, 2] > self._z_min, cloud[:, 2] < self._z_max)  
                             )
             cloud = cloud[idx_within_range]
+
+        
             cloud[:, 0].add_(-self._x_min)
             torch.neg_(cloud[:, 1])
             cloud[:, 1].add_(self._y_max)
@@ -103,32 +105,11 @@ class Voxelizer(torch.nn.Module):
             # now new_cloud is in i, j, k order after left right flip
 
 
-            # print(new_cloud[:, 2].shape, new_cloud[:, 1].shape, new_cloud[:, 0].shape)
-            # print(new_cloud[:, 2])
-            # sleep(5)
-            # new_cloud = torch.cat(torch.unsqueeze((new_cloud[:, 2], 0), torch.unsqueeze(new_cloud[:, 1], 0), torch.unsqueeze(new_cloud[:, 0], 0)), 1)  ##
-            
-            # x -> k, y -> j, z -> i
-            # padding_column = torch.unsqueeze(torch.tensor([w] * new_cloud.shape[0]), 1)
-            # padded_w = torch.cat([padding_column, new_cloud], 1)  ##
-            # indices = padded_w.long()
             indices = new_cloud.long()
-            
-            # ones = torch.ones(indices.shape[0],
-            #                   dtype=torch.bool,
-            #                   device=pointclouds[0].device)
             ones = torch.tensor(1.).bool()
-            # print(initial_tensor.type(), ones.type())
-            # initial_tensor.index_put_(tuple(indices.t()), ones)
-            # initial_tensor[w].index_put_(tuple(indices.t()), ones)
             initial_tensor[w].index_put_(tuple(indices.t()), ones)
+            
 
-            # for row_point in cloud:
-            #     x, y, z = row_point[0].item(), row_point[1].item(), row_point[2].item()
-            #     # if x < self._x_max and x > self._x_min and y > self._y_min
-            #     i, j, k = int((z - self._z_min) // self._step), int((self._y_max - y) // self._step), int((x - self._x_min) // self._step)
-            #     # i, j, k = torch.floor_divide(torch.tensor(i,j,k), self._step)
-            #     initial_tensor[w, i, j, k] = 1
         return initial_tensor
 
 
