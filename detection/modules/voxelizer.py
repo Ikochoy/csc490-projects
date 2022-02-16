@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from time import sleep
 from typing import List, Tuple
-from winreg import EnumValue
 
 import torch
 
@@ -51,6 +50,7 @@ class Voxelizer(torch.nn.Module):
         self._y_min, self._y_max = config.y_range
         self._z_min, self._z_max = config.z_range
         self._depth, self._height, self._width = config.bev_size
+        print("CONFIG:", self._x_min)
 
     def forward(self, pointclouds: List[torch.Tensor]) -> torch.Tensor:
         """Voxelize a batch of lidar pointclouds into a BEV occupacy image.
@@ -83,35 +83,31 @@ class Voxelizer(torch.nn.Module):
             dtype=torch.bool,  ## or float??
             device=pointclouds[0].device,
         )
-
         for w, cloud in enumerate(pointclouds):
-            # print("*"*10)
-            # # print(cloud)
-            # # print(cloud[:, 0] > self._x_min)
+            #line 89- 99 tested
             idx_within_range = torch.bitwise_and(
+                                torch.bitwise_and(
                                     torch.bitwise_and(cloud[:, 0] > self._x_min, cloud[:, 0] < self._x_max),
-                                    torch.bitwise_and(cloud[:, 1] > self._y_min, cloud[:, 1] < self._y_max)
-                                    )
-            # print(cloud.shape)
+                                    torch.bitwise_and(cloud[:, 1] > self._y_min, cloud[:, 1] < self._y_max),
+                                ), 
+                                torch.bitwise_and(cloud[:, 2] > self._z_min, cloud[:, 2] < self._z_max)  
+                            )
             cloud = cloud[idx_within_range]
-            print(cloud.shape)
             cloud[:, 0].add_(-self._x_min)
-            # print("Here", cloud[:, 1])
             torch.neg_(cloud[:, 1])
-            # print(cloud[:, 1])
             cloud[:, 1].add_(self._y_max)
-            # print(cloud[:, 1])
             cloud[:, 2].add_(-self._z_min)
+            # new cloud is currently in x, y, z order i.e: k, j, i order
             new_cloud = torch.div(cloud, self._step, rounding_mode='floor')
-            
-            print("*"*10)
-            # print(new_cloud.shape)
+            new_cloud = torch.fliplr(new_cloud)
+            # now new_cloud is in i, j, k order after left right flip
+
+
             # print(new_cloud[:, 2].shape, new_cloud[:, 1].shape, new_cloud[:, 0].shape)
             # print(new_cloud[:, 2])
             # sleep(5)
-            new_cloud = torch.cat(torch.unsqueeze((new_cloud[:, 2], 0), torch.unsqueeze(new_cloud[:, 1], 0), torch.unsqueeze(new_cloud[:, 0], 0)), 1)  ##
-            # new_cloud = torch.fliplr(new_cloud)
-            print(new_cloud.shape)
+            # new_cloud = torch.cat(torch.unsqueeze((new_cloud[:, 2], 0), torch.unsqueeze(new_cloud[:, 1], 0), torch.unsqueeze(new_cloud[:, 0], 0)), 1)  ##
+            
             # x -> k, y -> j, z -> i
             # padding_column = torch.unsqueeze(torch.tensor([w] * new_cloud.shape[0]), 1)
             # padded_w = torch.cat([padding_column, new_cloud], 1)  ##
@@ -124,9 +120,8 @@ class Voxelizer(torch.nn.Module):
             ones = torch.tensor(1.).bool()
             # print(initial_tensor.type(), ones.type())
             # initial_tensor.index_put_(tuple(indices.t()), ones)
-            print("HERE", indices.shape, indices.t().shape)
             # initial_tensor[w].index_put_(tuple(indices.t()), ones)
-            initial_tensor[w].index_put_(tuple(indices), ones)
+            initial_tensor[w].index_put_(tuple(indices.t()), ones)
 
             # for row_point in cloud:
             #     x, y, z = row_point[0].item(), row_point[1].item(), row_point[2].item()
