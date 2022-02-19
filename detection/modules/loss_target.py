@@ -43,8 +43,8 @@ def create_heatmap(grid_coords: Tensor, center: Tensor, scale: float) -> Tensor:
     gaussianed = torch.exp(torch.neg(torch.square(tensor_reshaped[:,0] - center[0]) + torch.square(tensor_reshaped[:, 1] - center[1])) / scale)
     gaussianed = gaussianed.reshape(h, w)  # stack -> h*w, 1
     
-    # the gaussianed is perhaps already normalized as required, need to test & check
-    gaussianed = torch.div(gaussianed, gaussianed.sum())
+    # normalize with peak value being 1
+    gaussianed = torch.div(gaussianed, gaussianed.max())
     return gaussianed
 
 

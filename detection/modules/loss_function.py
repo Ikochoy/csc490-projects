@@ -29,7 +29,20 @@ def heatmap_weighted_mse_loss(
             weighted average using the provided `heatmap`.
     """
     # TODO: Replace this stub code.
-    return torch.sum(predictions) * 0.0
+    # return torch.sum(predictions) * 0.0
+
+    print("Targets tensor shape:", targets.shape)
+    # reduce the C dimension which corresponds to dim=1
+    l2_norm = torch.sqrt(torch.sum((targets - predictions) ** 2, dim=1))
+    print("L2_norm shape:", l2_norm.shape)  # [batch_size x H x W] tensor `mse_loss`
+
+    heatmap_reduced = torch.sum(heatmap, dim=1)  # reducing dimension
+    mask = heatmap_reduced > heatmap_threshold
+    print("heatmap mask shape:", mask.shape)  # [batch_size x H x W] tensor `mask`
+
+    heatmap_masked = torch.masked_select(heatmap, mask)  # 1-D tensor with only valid elements
+    l2_norm_masked = torch.masked_select(l2_norm, mask)  # same order corresponding to heatmap_masked elements
+    return torch.mean(heatmap_masked * l2_norm_masked) # average of element-wise multiplied masked entries
 
 
 @dataclass
